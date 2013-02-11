@@ -6,6 +6,7 @@ import timeit
 import inspect
 import logging
 import functools
+import csv
 try:
     from cStringIO import StringIO
 except ImportError:
@@ -191,7 +192,40 @@ def profile(*fn, **options):
                 sys.stdout.close()
                 sys.stdout = old_stdout
                 if stats_buffer is not None:
-                    stats_buffer.write(statistics)
+
+                    if type(stats_buffer) == str:
+                        if stats_buffer.split('.')[1] == "csv" and len(stats_buffer.split('.')) == 2:
+                            # converting statistics into nested lists (lines and numbers/data)
+                            # and formatting the csv file
+                            csv_table = []
+                            for m,line in enumerate(statistics.splitlines()):
+                                line_list = line.split()
+                                for n, word in enumerate(line_list):
+                                    try:
+                                        line_list[n] = int(word)
+                                    except ValueError:
+                                        try:
+                                            line_list[n] = float(word)
+                                        except ValueError:
+                                            pass
+                                if m <= 2:
+                                    line_list = [' '.join(map(str, line_list))]
+                                    pass
+                                else:
+                                    try:
+                                        line_list[5:] = [' '.join(map(str, line_list[5:]))]
+                                    except IndexError:
+                                        pass
+
+                                csv_table.append(line_list)
+
+                            # writing csv file
+                            csv_file = open(stats_buffer, 'wb')
+                            csv_writer = csv.writer(csv_file)
+                            csv_writer.writerows(csv_table)
+                            csv_file.close()
+                    else:
+                        stats_buffer.write(statistics)
                 else:
                     logger_name = settings.PROFILING_LOGGER_NAME if settings is not None and hasattr(settings, 'PROFILING_LOGGER_NAME') else __name__
                     logging.getLogger('{0}.{1}'.format(logger_name, profiler_name)).info(statistics)
